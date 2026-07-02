@@ -7,5 +7,6 @@ public enum Category {
     BRAKES,
     ELECTRICAL,
     BODY,
-    TYRES
+    TYRES,
+    PAINT
 }

@@ -491,15 +491,46 @@ public class GuiApp extends JFrame {
 
     private static Inventory buildSampleInventory() {
         Inventory inventory = new Inventory();
+        // Engine parts
         inventory.addPart(new Part("P-ENG-001", "Alloy Piston Set", Category.ENGINE, 89.99, 40));
         inventory.addPart(new Part("P-ENG-002", "Timing Belt Kit", Category.ENGINE, 54.50, 15));
+        inventory.addPart(new Part("P-ENG-003", "Cylinder Head", Category.ENGINE, 220.00, 5));
+        inventory.addPart(new Part("P-ENG-004", "Engine Oil Pump", Category.ENGINE, 75.25, 10));
+        inventory.addPart(new Part("P-ENG-005", "Spark Plug Set", Category.ENGINE, 18.99, 50));
+
+        // Brake parts
         inventory.addPart(new Part("P-BRK-001", "Ceramic Brake Pads", Category.BRAKES, 32.00, 60));
         inventory.addPart(new Part("P-BRK-002", "Brake Disc Rotor", Category.BRAKES, 45.75, 3));
+        inventory.addPart(new Part("P-BRK-003", "Brake Caliper", Category.BRAKES, 85.00, 6));
+        inventory.addPart(new Part("P-BRK-004", "Brake Fluid Bottle", Category.BRAKES, 12.50, 25));
+
+        // Electrical parts
         inventory.addPart(new Part("P-ELE-001", "12V Car Battery", Category.ELECTRICAL, 110.00, 8));
         inventory.addPart(new Part("P-ELE-002", "Alternator", Category.ELECTRICAL, 145.20, 2));
+        inventory.addPart(new Part("P-ELE-003", "Starter Motor", Category.ELECTRICAL, 130.00, 4));
+        inventory.addPart(new Part("P-ELE-004", "Headlight Bulb", Category.ELECTRICAL, 9.99, 100));
+        inventory.addPart(new Part("P-ELE-005", "Fuse Kit", Category.ELECTRICAL, 6.50, 75));
+
+        // Body parts
         inventory.addPart(new Part("P-BOD-001", "Wing Mirror (Left)", Category.BODY, 28.99, 4));
-//        inventory.addPart(new Part("P-POD-001", "Black matt ", Category.PAINT_EQUIPMENTS, 2.99, 7));
+        inventory.addPart(new Part("P-BOD-002", "Wing Mirror (Right)", Category.BODY, 28.99, 6));
+        inventory.addPart(new Part("P-BOD-003", "Front Bumper", Category.BODY, 150.00, 2));
+        inventory.addPart(new Part("P-BOD-004", "Rear Bumper", Category.BODY, 145.00, 3));
+        inventory.addPart(new Part("P-BOD-005", "Car Door Handle", Category.BODY, 12.75, 20));
+
+        // Paint / accessories
+        inventory.addPart(new Part("P-IOD-001", "Matt Black Paint Bottle", Category.PAINT, 2.99, 4));
+        inventory.addPart(new Part("P-IOD-002", "Gloss White Paint", Category.PAINT, 3.50, 10));
+        inventory.addPart(new Part("P-IOD-003", "Car Polish Kit", Category.PAINT, 15.00, 12));
+        inventory.addPart(new Part("P-IOD-004", "Scratch Remover", Category.PAINT, 8.99, 18));
+
+        // Tyres
+        inventory.addPart(new Part("P-TYR-001", "All-Season Tyre 195/65R15", Category.TYRES, 55.00, 10));
+        inventory.addPart(new Part("P-TYR-002", "Performance Tyre 225/40R18", Category.TYRES, 95.00, 6));
         inventory.addPart(new Part("P-TYR-003", "All-Season Tyre 205/55R16", Category.TYRES, 65.00, 4));
+        inventory.addPart(new Part("P-TYR-004", "Winter Tyre 205/60R16", Category.TYRES, 70.00, 5));
+
+
         return inventory;
     }
 
