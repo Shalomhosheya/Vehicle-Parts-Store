@@ -63,6 +63,12 @@ public class PartFormDialog extends JDialog {
         addRow(form, gbc, row++, "Unit price:", priceSpinner);
         addRow(form, gbc, row++, "Stock:", stockSpinner);
 
+        categoryBox.addActionListener(e -> {
+            if (chosenImageFile == null && !removeImageRequested) {
+                refreshPreview();
+            }
+        });
+
         errorLabel.setForeground(new Color(180, 0, 0));
         gbc.gridx = 0; gbc.gridy = row; gbc.gridwidth = 2;
         form.add(errorLabel, gbc);
@@ -149,14 +155,14 @@ public class PartFormDialog extends JDialog {
     private void onRemoveImage() {
         chosenImageFile = null;
         removeImageRequested = true;
-        imagePreview.setIcon(imageStore.getIcon("__placeholder__", PREVIEW_SIZE));
+        imagePreview.setIcon(imageStore.getIcon("__none__", (Category) categoryBox.getSelectedItem(), PREVIEW_SIZE));
     }
 
     private void refreshPreview() {
         if (existingId != null && imageStore.hasImage(existingId)) {
-            imagePreview.setIcon(imageStore.getIcon(existingId, PREVIEW_SIZE));
+            imagePreview.setIcon(imageStore.getIcon(existingId, (Category) categoryBox.getSelectedItem(), PREVIEW_SIZE));
         } else {
-            imagePreview.setIcon(imageStore.getIcon("__placeholder__", PREVIEW_SIZE));
+            imagePreview.setIcon(imageStore.getIcon("__none__", (Category) categoryBox.getSelectedItem(), PREVIEW_SIZE));
         }
     }
 

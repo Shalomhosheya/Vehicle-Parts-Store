@@ -228,7 +228,7 @@ public class GuiApp extends JFrame {
         for (Part part : filteredParts()) {
             double value = part.getUnitPrice() * part.getQuantityInStock();
             inventoryTableModel.addRow(new Object[]{
-                    imageStore.getIcon(part.getId(), TABLE_THUMB_SIZE),
+                    imageStore.getIcon(part.getId(), part.getCategory(), TABLE_THUMB_SIZE),
                     part.getId(),
                     part.getName(),
                     part.getCategory(),
@@ -380,7 +380,8 @@ public class GuiApp extends JFrame {
         int index = partComboBox.getSelectedIndex();
         List<Part> parts = inventory.allParts();
         if (index >= 0 && index < parts.size()) {
-            quotePartImage.setIcon(imageStore.getIcon(parts.get(index).getId(), QUOTE_PREVIEW_SIZE));
+            Part p = parts.get(index);
+            quotePartImage.setIcon(imageStore.getIcon(p.getId(), p.getCategory(), QUOTE_PREVIEW_SIZE));
         } else {
             quotePartImage.setIcon(null);
         }
