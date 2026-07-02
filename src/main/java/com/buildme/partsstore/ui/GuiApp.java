@@ -8,6 +8,7 @@ import com.buildme.partsstore.reflection.StrategyRegistry;
 import com.buildme.partsstore.store.VehiclePartsStore;
 import com.buildme.partsstore.ui.charts.BarChartPanel;
 import com.buildme.partsstore.ui.charts.PieChartPanel;
+import com.buildme.partsstore.ui.components.ImageStore;
 import com.buildme.partsstore.ui.components.PartFormDialog;
 import com.buildme.partsstore.ui.components.StatCardPanel;
 
@@ -46,6 +47,10 @@ public class GuiApp extends JFrame {
 
     private static final int DEFAULT_LOW_STOCK_THRESHOLD = 5;
 
+    private final ImageStore imageStore = new ImageStore();
+    private static final int TABLE_THUMB_SIZE = 40;
+    private static final int QUOTE_PREVIEW_SIZE = 110;
+
     private JTable inventoryTable;
     private DefaultTableModel inventoryTableModel;
     private JTextField searchField;
@@ -57,6 +62,7 @@ public class GuiApp extends JFrame {
     private JSpinner quantitySpinner;
     private JLabel resultLabel;
     private JTextArea logArea;
+    private JLabel quotePartImage;
 
     private StatCardPanel totalPartsCard;
     private StatCardPanel totalValueCard;
@@ -97,7 +103,9 @@ public class GuiApp extends JFrame {
         refreshAll();
     }
 
+    // ---------------------------------------------------------------
     // Toolbar (theme toggle)
+    // ---------------------------------------------------------------
 
     private JToolBar buildToolBar() {
         JToolBar bar = new JToolBar();
@@ -133,7 +141,9 @@ public class GuiApp extends JFrame {
         }
     }
 
+    // ---------------------------------------------------------------
     // Inventory tab
+    // ---------------------------------------------------------------
 
     private JPanel buildInventoryPanel() {
         JPanel panel = new JPanel(new BorderLayout(8, 8));
@@ -158,15 +168,21 @@ public class GuiApp extends JFrame {
         panel.add(filterBar, BorderLayout.NORTH);
 
         // --- table ---
-        String[] columns = {"ID", "Name", "Category", "Unit Price", "Stock", "Value"};
+        String[] columns = {"Image", "ID", "Name", "Category", "Unit Price", "Stock", "Value"};
         inventoryTableModel = new DefaultTableModel(columns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
             }
+
+            @Override
+            public Class<?> getColumnClass(int columnIndex) {
+                return columnIndex == 0 ? ImageIcon.class : Object.class;
+            }
         };
         inventoryTable = new JTable(inventoryTableModel);
-        inventoryTable.setRowHeight(24);
+        inventoryTable.setRowHeight(TABLE_THUMB_SIZE + 8);
+        inventoryTable.getColumnModel().getColumn(0).setMaxWidth(TABLE_THUMB_SIZE + 16);
         inventoryTable.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         panel.add(new JScrollPane(inventoryTable), BorderLayout.CENTER);
 
@@ -212,6 +228,7 @@ public class GuiApp extends JFrame {
         for (Part part : filteredParts()) {
             double value = part.getUnitPrice() * part.getQuantityInStock();
             inventoryTableModel.addRow(new Object[]{
+                    imageStore.getIcon(part.getId(), TABLE_THUMB_SIZE),
                     part.getId(),
                     part.getName(),
                     part.getCategory(),
@@ -228,12 +245,12 @@ public class GuiApp extends JFrame {
     private Part getSelectedPart() {
         int row = inventoryTable.getSelectedRow();
         if (row < 0) return null;
-        String id = (String) inventoryTableModel.getValueAt(row, 0);
+        String id = (String) inventoryTableModel.getValueAt(row, 1);
         return inventory.findById(id).orElse(null);
     }
 
     private void onAddPart() {
-        PartFormDialog dialog = new PartFormDialog(this, inventory, null);
+        PartFormDialog dialog = new PartFormDialog(this, inventory, null, imageStore);
         dialog.setVisible(true);
         Part newPart = dialog.getResult();
         if (newPart != null) {
@@ -250,7 +267,7 @@ public class GuiApp extends JFrame {
                     "No part selected", JOptionPane.WARNING_MESSAGE);
             return;
         }
-        PartFormDialog dialog = new PartFormDialog(this, inventory, selected);
+        PartFormDialog dialog = new PartFormDialog(this, inventory, selected, imageStore);
         dialog.setVisible(true);
         Part updated = dialog.getResult();
         if (updated != null) {
@@ -272,6 +289,7 @@ public class GuiApp extends JFrame {
                 "Confirm delete", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (confirm == JOptionPane.YES_OPTION) {
             inventory.removePart(selected.getId());
+            imageStore.removeImage(selected.getId());
             log("[DELETE] " + selected.getId() + " - " + selected.getName());
             refreshAll();
         }
@@ -292,6 +310,7 @@ public class GuiApp extends JFrame {
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
         partComboBox = new JComboBox<>();
+        partComboBox.addActionListener(e -> updateQuotePartImage());
 
         strategyComboBox = new JComboBox<>();
         for (String key : strategyRegistry.availableStrategies()) {
@@ -303,20 +322,28 @@ public class GuiApp extends JFrame {
         JButton quoteButton = new JButton("Get Quote");
         quoteButton.addActionListener(e -> onGetQuote());
 
+        quotePartImage = new JLabel();
+        quotePartImage.setPreferredSize(new Dimension(QUOTE_PREVIEW_SIZE, QUOTE_PREVIEW_SIZE));
+        quotePartImage.setHorizontalAlignment(SwingConstants.CENTER);
+        quotePartImage.setBorder(BorderFactory.createLineBorder(new Color(210, 210, 210)));
+
         int row = 0;
-        gbc.gridx = 0; gbc.gridy = row; form.add(new JLabel("Part:"), gbc);
-        gbc.gridx = 1; gbc.gridy = row; form.add(partComboBox, gbc);
+        gbc.gridx = 0; gbc.gridy = row; gbc.gridheight = 5; form.add(quotePartImage, gbc);
+        gbc.gridheight = 1;
+
+        gbc.gridx = 1; gbc.gridy = row; form.add(new JLabel("Part:"), gbc);
+        gbc.gridx = 2; gbc.gridy = row; form.add(partComboBox, gbc);
 
         row++;
-        gbc.gridx = 0; gbc.gridy = row; form.add(new JLabel("Quantity:"), gbc);
-        gbc.gridx = 1; gbc.gridy = row; form.add(quantitySpinner, gbc);
+        gbc.gridx = 1; gbc.gridy = row; form.add(new JLabel("Quantity:"), gbc);
+        gbc.gridx = 2; gbc.gridy = row; form.add(quantitySpinner, gbc);
 
         row++;
-        gbc.gridx = 0; gbc.gridy = row; form.add(new JLabel("Pricing strategy:"), gbc);
-        gbc.gridx = 1; gbc.gridy = row; form.add(strategyComboBox, gbc);
+        gbc.gridx = 1; gbc.gridy = row; form.add(new JLabel("Pricing strategy:"), gbc);
+        gbc.gridx = 2; gbc.gridy = row; form.add(strategyComboBox, gbc);
 
         row++;
-        gbc.gridx = 1; gbc.gridy = row; form.add(quoteButton, gbc);
+        gbc.gridx = 2; gbc.gridy = row; form.add(quoteButton, gbc);
 
         resultLabel = new JLabel(" ");
         resultLabel.setFont(resultLabel.getFont().deriveFont(Font.BOLD, 16f));
@@ -344,6 +371,18 @@ public class GuiApp extends JFrame {
         }
         if (previousSelection != null) {
             partComboBox.setSelectedItem(previousSelection);
+        }
+        updateQuotePartImage();
+    }
+
+    private void updateQuotePartImage() {
+        if (quotePartImage == null) return;
+        int index = partComboBox.getSelectedIndex();
+        List<Part> parts = inventory.allParts();
+        if (index >= 0 && index < parts.size()) {
+            quotePartImage.setIcon(imageStore.getIcon(parts.get(index).getId(), QUOTE_PREVIEW_SIZE));
+        } else {
+            quotePartImage.setIcon(null);
         }
     }
 
@@ -491,6 +530,7 @@ public class GuiApp extends JFrame {
 
     private static Inventory buildSampleInventory() {
         Inventory inventory = new Inventory();
+
         // Engine parts
         inventory.addPart(new Part("P-ENG-001", "Alloy Piston Set", Category.ENGINE, 89.99, 40));
         inventory.addPart(new Part("P-ENG-002", "Timing Belt Kit", Category.ENGINE, 54.50, 15));
@@ -529,7 +569,6 @@ public class GuiApp extends JFrame {
         inventory.addPart(new Part("P-TYR-002", "Performance Tyre 225/40R18", Category.TYRES, 95.00, 6));
         inventory.addPart(new Part("P-TYR-003", "All-Season Tyre 205/55R16", Category.TYRES, 65.00, 4));
         inventory.addPart(new Part("P-TYR-004", "Winter Tyre 205/60R16", Category.TYRES, 70.00, 5));
-
 
         return inventory;
     }
