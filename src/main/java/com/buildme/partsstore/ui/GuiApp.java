@@ -90,12 +90,23 @@ public class GuiApp extends JFrame {
      * Inventory#findById — this prevents index-desync bugs that occur
      * when the combo label and the allParts() list get out of step.
      */
-    private JComboBox<String> partComboBox;
-    private JComboBox<String> strategyComboBox;
-    private JSpinner          quantitySpinner;
-    private JLabel            resultLabel;
-    private JTextArea         logArea;
-    private JLabel            quotePartImage;
+    private JComboBox<String>   partComboBox;
+    private JComboBox<String>   strategyComboBox;
+    private JSpinner             quantitySpinner;
+    private JLabel               resultLabel;
+    private JTextArea            logArea;
+    private JLabel               quotePartImage;
+
+    /**
+     * "Served by" cashier selector.
+     * Items are stored as "ID - Name (Role)" so the employee can be
+     * looked up by ID when Get Quote is clicked.
+     * The first item is always "None — No staff discount".
+     */
+    private JComboBox<String> cashierComboBox;
+
+    /** Live hint shown next to the cashier combo (e.g. "10% staff discount"). */
+    private JLabel discountInfoLabel;
 
     // ---------------------------------------------------------------
     // Dashboard tab fields
@@ -220,7 +231,7 @@ public class GuiApp extends JFrame {
         panel.add(filterBar, BorderLayout.NORTH);
 
         // --- table ---
-        String[] columns = {"Image", "ID", "Name", "Category", "Unit Price", "Stock", "Value"};
+        String[] columns = {"Image", "ID", "Name", "Category", "Unit Price (LKR) ", "Stock", "Value"};
         inventoryTableModel = new DefaultTableModel(columns, 0) {
             @Override public boolean isCellEditable(int row, int column) { return false; }
             @Override public Class<?> getColumnClass(int col) {
@@ -288,7 +299,7 @@ public class GuiApp extends JFrame {
         }
         if (totalValueLabel != null) {
             totalValueLabel.setText(String.format(
-                    "Total inventory value: %.2f", inventory.totalInventoryValue()));
+                    "Total inventory value (LKR) : %.2f", inventory.totalInventoryValue()));
         }
     }
 
@@ -371,6 +382,20 @@ public class GuiApp extends JFrame {
 
         quantitySpinner = new JSpinner(new SpinnerNumberModel(1, 1, 999, 1));
 
+        // Cashier combo — first entry means "no staff discount".
+        // Remaining entries are "ID - Name (Role  X%)" for every employee.
+        cashierComboBox = new JComboBox<>();
+        cashierComboBox.addItem("None — No staff discount");
+        for (Employee emp : employeeDirectory.allEmployeesSortedByName()) {
+            cashierComboBox.addItem(formatCashierItem(emp));
+        }
+
+        // Live discount hint label — updates whenever the combo changes.
+        discountInfoLabel = new JLabel(" ");
+        discountInfoLabel.setFont(discountInfoLabel.getFont().deriveFont(Font.ITALIC, 11f));
+        discountInfoLabel.setForeground(new Color(90, 90, 90));
+        cashierComboBox.addActionListener(e -> updateDiscountInfoLabel());
+
         JButton quoteButton = new JButton("Get Quote");
         quoteButton.addActionListener(e -> onGetQuote());
 
@@ -379,22 +404,38 @@ public class GuiApp extends JFrame {
         quotePartImage.setHorizontalAlignment(SwingConstants.CENTER);
         quotePartImage.setBorder(BorderFactory.createLineBorder(new Color(210, 210, 210)));
 
+        // The part image spans all form rows on the left (gridheight = 6 now).
         int row = 0;
-        gbc.gridx = 0; gbc.gridy = row; gbc.gridheight = 5;
+        gbc.gridx = 0; gbc.gridy = row; gbc.gridheight = 6;
         form.add(quotePartImage, gbc);
         gbc.gridheight = 1;
 
+        // Row 0 — Part
         gbc.gridx = 1; gbc.gridy = row; form.add(new JLabel("Part:"), gbc);
         gbc.gridx = 2; gbc.gridy = row; form.add(partComboBox, gbc);
 
+        // Row 1 — Quantity
         row++;
         gbc.gridx = 1; gbc.gridy = row; form.add(new JLabel("Quantity:"), gbc);
         gbc.gridx = 2; gbc.gridy = row; form.add(quantitySpinner, gbc);
 
+        // Row 2 — Pricing strategy
         row++;
         gbc.gridx = 1; gbc.gridy = row; form.add(new JLabel("Pricing strategy:"), gbc);
         gbc.gridx = 2; gbc.gridy = row; form.add(strategyComboBox, gbc);
 
+        // Row 3 — Served by (cashier / staff discount)
+        row++;
+        gbc.gridx = 1; gbc.gridy = row; form.add(new JLabel("Served by:"), gbc);
+        gbc.gridx = 2; gbc.gridy = row; form.add(cashierComboBox, gbc);
+
+        // Row 4 — Discount hint (spans label + combo columns)
+        row++;
+        gbc.gridx = 1; gbc.gridy = row; gbc.gridwidth = 2;
+        form.add(discountInfoLabel, gbc);
+        gbc.gridwidth = 1;
+
+        // Row 5 — Get Quote button
         row++;
         gbc.gridx = 2; gbc.gridy = row; form.add(quoteButton, gbc);
 
@@ -414,6 +455,53 @@ public class GuiApp extends JFrame {
         outer.add(form,       BorderLayout.WEST);
         outer.add(rightPanel, BorderLayout.CENTER);
         return outer;
+    }
+
+    /**
+     * Builds the display string stored in {@link #cashierComboBox} for one employee.
+     * Format: "E1 - Sahan Dias (MANAGER  20%)"
+     */
+    private String formatCashierItem(Employee emp) {
+        return String.format("%s - %s (%s  %.0f%%)",
+                emp.getId(), emp.getName(),
+                emp.getRole(), emp.getStaffDiscountRate() * 100);
+    }
+
+    /**
+     * Updates the live hint label beneath the cashier combo.
+     * Shows the selected employee's role and discount rate, or a
+     * "no discount" message when the "None" entry is selected.
+     */
+    private void updateDiscountInfoLabel() {
+        if (discountInfoLabel == null) return;
+        Employee emp = selectedCashier();
+        if (emp == null) {
+            discountInfoLabel.setText("No staff discount will be applied.");
+            discountInfoLabel.setForeground(new Color(130, 130, 130));
+        } else {
+            discountInfoLabel.setText(String.format(
+                    "%s (%s) — %.0f%% staff discount will be applied.",
+                    emp.getName(), emp.getRole(), emp.getStaffDiscountRate() * 100));
+            discountInfoLabel.setForeground(new Color(0, 110, 50));
+        }
+    }
+
+    /**
+     * Returns the {@link Employee} currently selected in the cashier combo,
+     * or {@code null} if the "None" entry (index 0) is selected.
+     * The employee ID is extracted from the combo label and resolved via
+     * {@link EmployeeDirectory} so the lookup is always accurate.
+     */
+    private Employee selectedCashier() {
+        int index = cashierComboBox.getSelectedIndex();
+        if (index <= 0) return null;   // index 0 == "None — No staff discount"
+        String item = (String) cashierComboBox.getSelectedItem();
+        if (item == null) return null;
+        // Label format: "E1 - Amara Khan (…)" — take everything before the first " - ".
+        int dash = item.indexOf(" - ");
+        if (dash < 0) return null;
+        String empId = item.substring(0, dash);
+        return employeeDirectory.findById(empId).orElse(null);
     }
 
     /**
@@ -465,22 +553,46 @@ public class GuiApp extends JFrame {
             return;
         }
 
-        int    quantity    = (Integer) quantitySpinner.getValue();
-        String strategyKey = (String)  strategyComboBox.getSelectedItem();
+        int      quantity    = (Integer)  quantitySpinner.getValue();
+        String   strategyKey = (String)   strategyComboBox.getSelectedItem();
+        Employee cashier     = selectedCashier();   // null == no discount
 
         try {
             // Reflection: strategy is created dynamically by key via StrategyRegistry.
             PricingStrategy strategy = strategyRegistry.createStrategy(strategyKey);
             store.setPricingStrategy(strategy);
 
-            double price = store.quote(selectedPart.getId(), quantity);
+            // Base price from the chosen pricing strategy.
+            double basePrice = store.quote(selectedPart.getId(), quantity);
+
+            // Apply staff discount when a cashier is selected.
+            double discountRate   = cashier != null ? cashier.getStaffDiscountRate() : 0.0;
+            double discountAmount = basePrice * discountRate;
+            double finalPrice     = basePrice - discountAmount;
 
             resultLabel.setForeground(new Color(0, 130, 0));
-            resultLabel.setText(String.format("Total: %.2f  (%d x %s @ %s)",
-                    price, quantity, selectedPart.getName(), strategyKey));
 
-            log(String.format("[%s] %d x %s -> %.2f",
-                    strategyKey, quantity, selectedPart.getName(), price));
+            if (cashier != null && discountRate > 0.0) {
+                // Show full breakdown: base → discount → final.
+                resultLabel.setText(String.format(
+                        "<html>Base: <b>%.2f</b>  −  %.0f%% staff discount (%.2f)"
+                                + "  =  <span style='font-size:110%%'>%.2f</span></html>",
+                        basePrice, discountRate * 100, discountAmount, finalPrice));
+
+                log(String.format("[%s] %d x %s | base %.2f | -%s %.0f%% (%.2f) | final %.2f",
+                        strategyKey, quantity, selectedPart.getName(),
+                        basePrice,
+                        cashier.getName(), discountRate * 100, discountAmount,
+                        finalPrice));
+            } else {
+                // No discount — simpler display.
+                resultLabel.setText(String.format(
+                        "Total(LKR) : %.2f  (%d x %s @ %s)",
+                        finalPrice, quantity, selectedPart.getName(), strategyKey));
+
+                log(String.format("[%s] %d x %s -> %.2f  (no staff discount)",
+                        strategyKey, quantity, selectedPart.getName(), finalPrice));
+            }
 
         } catch (IllegalStateException | NoSuchElementException | IllegalArgumentException ex) {
             resultLabel.setForeground(new Color(190, 0, 0));
@@ -507,7 +619,7 @@ public class GuiApp extends JFrame {
         // Stat cards row
         JPanel cards = new JPanel(new GridLayout(1, 3, 12, 0));
         totalPartsCard = new StatCardPanel("Total Parts",      "0",    new Color(64, 132, 214));
-        totalValueCard = new StatCardPanel("Total Value",      "0.00", new Color(80, 170, 120));
+        totalValueCard = new StatCardPanel("Total Value (LKR) ",      "0.00", new Color(80, 170, 120));
         lowStockCard   = new StatCardPanel("Low Stock Items",  "0",    new Color(214, 90, 64));
         cards.add(wrapCard(totalPartsCard));
         cards.add(wrapCard(totalValueCard));
@@ -686,10 +798,10 @@ public class GuiApp extends JFrame {
 
     private static EmployeeDirectory buildSampleEmployeeDirectory() {
         EmployeeDirectory directory = new EmployeeDirectory();
-        directory.addEmployee(new Employee("E1", "Amara Khan",   Role.MANAGER,         0.20));
-        directory.addEmployee(new Employee("E2", "Ben Ho",       Role.SALES_ASSISTANT, 0.10));
-        directory.addEmployee(new Employee("E3", "Aisha Bello",  Role.CASHIER,         0.10));
-        directory.addEmployee(new Employee("E4", "Chidi Obi",    Role.WAREHOUSE_STAFF, 0.05));
+        directory.addEmployee(new Employee("E1", "Sahan Dias",   Role.MANAGER,         0.20));
+        directory.addEmployee(new Employee("E2", "Amila jayathilaka",       Role.SALES_ASSISTANT, 0.10));
+        directory.addEmployee(new Employee("E3", "Warun de silva",  Role.CASHIER,         0.10));
+        directory.addEmployee(new Employee("E4", "Pasindu Perera",    Role.WAREHOUSE_STAFF, 0.05));
         return directory;
     }
 

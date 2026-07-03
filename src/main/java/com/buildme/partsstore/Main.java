@@ -12,6 +12,7 @@ import com.buildme.partsstore.store.VehiclePartsStore;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.NoSuchElementException;
 
 /*
 
@@ -29,13 +30,15 @@ public class Main {
     public static void main(String[] args) {
         Locale.setDefault(Locale.UK);
 
+
         Inventory inventory = buildSampleInventory();
+        EmployeeDirectory employeeDirectory = buildSampleEmployeeDirectory();
 
         System.out.println("=== Vehicle Parts Store ===");
         System.out.println("Total parts in inventory: " + inventory.size());
         System.out.printf("Total inventory value: GBP %.2f%n%n", inventory.totalInventoryValue());
 
-        // Functional programming bit - using streams/Optional/method refs here
+        // --- Functional Programming demo: streams, method references, Optional ---
         System.out.println("--- Low stock parts (stock < 5) ---");
         List<Part> lowStock = inventory.lowStockParts(5);
         lowStock.forEach(p -> System.out.println("  " + p));
@@ -43,14 +46,14 @@ public class Main {
         System.out.println("\n--- Brake parts, sorted by name (stream filter + sorted) ---");
         inventory.findByCategory(Category.BRAKES).forEach(p -> System.out.println("  " + p));
 
-        // Reflection bit - grabbing the strategies without ever writing "new SomeStrategy()" directly
+        // --- Reflection demo: discover and describe strategies without ever "new"-ing them directly ---
         System.out.println("\n--- Available pricing strategies (via reflection) ---");
         StrategyRegistry registry = new StrategyRegistry();
         for (String key : registry.availableStrategies()) {
             System.out.println("  " + registry.describe(key));
         }
 
-        // Strategy pattern bit - same store, just swapping the pricing strategy each time
+        // --- Strategy Pattern demo: same store, three different pricing behaviours ---
         VehiclePartsStore store = new VehiclePartsStore(inventory, registry.createStrategy("REGULAR"));
 
         System.out.println("\n--- Pricing the same order under different strategies ---");
@@ -58,14 +61,14 @@ public class Main {
         int quantity = 12;
 
         for (String key : List.of("REGULAR", "BULK_DISCOUNT")) {
-            PricingStrategy strategy = registry.createStrategy(key); // built through reflection
+            PricingStrategy strategy = registry.createStrategy(key); // instantiated via reflection
             store.setPricingStrategy(strategy);
             double price = store.quote(partId, quantity);
             System.out.printf("  [%s] %d x %s = GBP %.2f%n", key, quantity,
                     inventory.findById(partId).map(Part::getName).orElse("?"), price);
         }
 
-        // this should fail - the part isn't actually low stock so clearance pricing shouldn't apply
+        // Clearance strategy correctly rejects a part that isn't low stock
         store.setPricingStrategy(registry.createStrategy("CLEARANCE"));
         try {
             store.quote(partId, quantity);
@@ -73,20 +76,51 @@ public class Main {
             System.out.println("  [CLEARANCE] rejected as expected: " + ex.getMessage());
         }
 
-        // now try it on a part that's actually low on stock - should go through fine
+        // Clearance strategy succeeds against genuinely low-stock part
         String lowStockPartId = "P-TYR-003";
         double clearancePrice = store.quote(lowStockPartId, 2);
         System.out.printf("  [CLEARANCE] 2 x %s = GBP %.2f%n",
                 inventory.findById(lowStockPartId).map(Part::getName).orElse("?"), clearancePrice);
 
-        // quick example of just passing in a strategy as a lambda instead of a whole class
-        System.out.println("\n--- Ad-hoc lambda strategy (no named class required) ---");
-        PricingStrategy staffDiscount = (part, qty) -> part.getUnitPrice() * qty * 0.80; // 20% staff discount
+        // --- Employees demo: EmployeeDirectory mirrors Inventory's structure and Stream usage ---
+        System.out.println("\n--- Employees ---");
+        employeeDirectory.allEmployeesSortedByName().forEach(e -> System.out.println("  " + e));
+
+        System.out.println("\n--- Managers only (stream filter) ---");
+        employeeDirectory.managers().forEach(e -> System.out.println("  " + e));
+
+        // --- Functional Programming demo: an ad-hoc strategy built from an employee's own discount rate ---
+        System.out.println("\n--- Staff discount priced from an employee's own record ---");
+        Employee cashier = employeeDirectory.findById("E3")
+                .orElseThrow(() -> new NoSuchElementException("Unknown employee id"));
+        PricingStrategy staffDiscount = (part, qty) ->
+                part.getUnitPrice() * qty * (1 - cashier.getStaffDiscountRate());
         store.setPricingStrategy(staffDiscount);
         double staffPrice = store.quote(partId, 3);
-        System.out.printf("  [STAFF_DISCOUNT lambda] 3 x %s = GBP %.2f%n",
+        System.out.printf("  [STAFF_DISCOUNT lambda, %s @ %.0f%%] 3 x %s = GBP %.2f%n",
+                cashier.getName(), cashier.getStaffDiscountRate() * 100,
                 inventory.findById(partId).map(Part::getName).orElse("?"), staffPrice);
-    }
+
+        // --- Role-based authorisation demo: only a manager may authorise clearance pricing ---
+        System.out.println("\n--- Clearance authorisation (role-based check) ---");
+        Employee assistant = employeeDirectory.findById("E2")
+                .orElseThrow(() -> new NoSuchElementException("Unknown employee id"));
+        Employee manager = employeeDirectory.findById("E1")
+                .orElseThrow(() -> new NoSuchElementException("Unknown employee id"));
+
+        for (Employee approver : List.of(assistant, manager)) {
+            if (approver.canAuthoriseClearance()) {
+                store.setPricingStrategy(registry.createStrategy("CLEARANCE"));
+                double approvedPrice = store.quote(lowStockPartId, 2);
+                System.out.printf("  %s (%s) authorised clearance: 2 x %s = GBP %.2f%n",
+                        approver.getName(), approver.getRole(),
+                        inventory.findById(lowStockPartId).map(Part::getName).orElse("?"), approvedPrice);
+            } else {
+                System.out.printf("  %s (%s) is NOT authorised to apply clearance pricing.%n",
+                        approver.getName(), approver.getRole());
+            }
+        }
+        }
 
     // just some made-up sample data to populate the inventory for the demo
     private static Inventory buildSampleInventory() {
@@ -136,10 +170,11 @@ public class Main {
     }
     private static EmployeeDirectory buildSampleEmployeeDirectory() {
         EmployeeDirectory directory = new EmployeeDirectory();
-        directory.addEmployee(new Employee("E1", "Amara Khan", Role.MANAGER, 0.20));
-        directory.addEmployee(new Employee("E2", "Ben Ho", Role.SALES_ASSISTANT, 0.10));
-        directory.addEmployee(new Employee("E3", "Aisha Bello", Role.CASHIER, 0.10));
-        directory.addEmployee(new Employee("E4", "Chidi Obi", Role.WAREHOUSE_STAFF, 0.05));
+
+        directory.addEmployee(new Employee("E1", "Sahan Dias",   Role.MANAGER,         0.20));
+        directory.addEmployee(new Employee("E2", "Amila jayathilaka",       Role.SALES_ASSISTANT, 0.10));
+        directory.addEmployee(new Employee("E3", "Warun de silva",  Role.CASHIER,         0.10));
+        directory.addEmployee(new Employee("E4", "Pasindu Perera",    Role.WAREHOUSE_STAFF, 0.05));
         return directory;
     }
 

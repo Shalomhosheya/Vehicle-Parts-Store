@@ -60,7 +60,7 @@ public class PartFormDialog extends JDialog {
         addRow(form, gbc, row++, "Part ID:", idField);
         addRow(form, gbc, row++, "Name:", nameField);
         addRow(form, gbc, row++, "Category:", categoryBox);
-        addRow(form, gbc, row++, "Unit price:", priceSpinner);
+        addRow(form, gbc, row++, "Unit price (LKR) :", priceSpinner);
         addRow(form, gbc, row++, "Stock:", stockSpinner);
 
         categoryBox.addActionListener(e -> {
