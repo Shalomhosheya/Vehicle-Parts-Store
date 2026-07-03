@@ -595,7 +595,7 @@ public class GuiApp extends JFrame {
             }
 
         } catch (IllegalStateException | NoSuchElementException | IllegalArgumentException ex) {
-            resultLabel.setForeground(new Color(190, 0, 0));
+            resultLabel.setForeground(new Color(203, 18, 18));
             resultLabel.setText("Cannot price this order: " + ex.getMessage());
             log("[ERROR] " + ex.getMessage());
         }

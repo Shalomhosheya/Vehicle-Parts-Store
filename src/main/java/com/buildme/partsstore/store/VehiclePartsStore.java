@@ -31,7 +31,7 @@ public class VehiclePartsStore {
         return pricingStrategy.calculatePrice(part, quantity);
     }
 
-    public Inventory getInventory() {
-        return inventory;
-    }
+//    public Inventory getInventory() {
+//        return inventory;
+//    }
 }
