@@ -2,9 +2,12 @@ package com.buildme.partsstore;
 
 import com.buildme.partsstore.inventory.Inventory;
 import com.buildme.partsstore.model.Category;
+import com.buildme.partsstore.model.Employee;
 import com.buildme.partsstore.model.Part;
+import com.buildme.partsstore.model.Role;
 import com.buildme.partsstore.pricing.PricingStrategy;
 import com.buildme.partsstore.reflection.StrategyRegistry;
+import com.buildme.partsstore.staff.EmployeeDirectory;
 import com.buildme.partsstore.store.VehiclePartsStore;
 
 import java.util.List;
@@ -130,6 +133,14 @@ public class Main {
                 inventory.addPart(new Part("P-TYR-004", "Winter Tyre 205/60R16", Category.TYRES, 70.00, 5));
 
                 return inventory;
+    }
+    private static EmployeeDirectory buildSampleEmployeeDirectory() {
+        EmployeeDirectory directory = new EmployeeDirectory();
+        directory.addEmployee(new Employee("E1", "Amara Khan", Role.MANAGER, 0.20));
+        directory.addEmployee(new Employee("E2", "Ben Ho", Role.SALES_ASSISTANT, 0.10));
+        directory.addEmployee(new Employee("E3", "Aisha Bello", Role.CASHIER, 0.10));
+        directory.addEmployee(new Employee("E4", "Chidi Obi", Role.WAREHOUSE_STAFF, 0.05));
+        return directory;
     }
 
 }
